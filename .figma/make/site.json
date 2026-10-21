@@ -1,0 +1,10 @@
+{
+  "description": "Enhance railway maintenance with a decision-support system that monitors infrastructure, identifies risks, and optimizes maintenance planning for operators.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
