@@ -1,4 +1,5 @@
 import { createServer as createHttpServer } from 'node:http'
+import { request as httpsRequest } from 'node:https'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
@@ -137,6 +138,47 @@ function makeSearchUrl(query, domainType, purpose) {
   return url
 }
 
+function requestWithHttps(url, options) {
+  return new Promise((resolveRequest, rejectRequest) => {
+    let attempts = 0
+
+    const send = () => {
+      attempts += 1
+      const request = httpsRequest(url, {
+        method: options.method,
+        headers: { ...options.headers, Connection: 'close' },
+        agent: false,
+        family: 4,
+        minVersion: 'TLSv1.2',
+        maxVersion: 'TLSv1.2',
+        signal: options.signal,
+      }, response => {
+        const chunks = []
+        response.on('data', chunk => chunks.push(chunk))
+        response.on('end', () => {
+          const body = Buffer.concat(chunks).toString('utf8')
+          resolveRequest(new Response(body, {
+            status: response.statusCode,
+            headers: response.headers,
+          }))
+        })
+        response.on('error', rejectRequest)
+      })
+
+      request.on('error', error => {
+        if (error.code === 'ECONNRESET' && attempts < 3) {
+          setTimeout(send, attempts * 500)
+          return
+        }
+        rejectRequest(error)
+      })
+      request.end()
+    }
+
+    send()
+  })
+}
+
 function sanitizeUpstreamErrorBody(body, apiKey) {
   let safeBody = body
   if (apiKey) safeBody = safeBody.split(apiKey).join('[REDACTED]')
@@ -149,9 +191,37 @@ function sanitizeUpstreamErrorBody(body, apiKey) {
     .slice(0, MAX_UPSTREAM_ERROR_CHARS)
 }
 
+function makeUpstreamHttpError(status, body) {
+  const detail = body || '(empty response body)'
+  let prefix = `TinyFish Search returned HTTP ${status}`
+  if (status === 401 || status === 403) {
+    prefix += '. Authentication was rejected; verify TINYFISH_API_KEY.'
+  } else if (status === 429) {
+    prefix += '. TinyFish rate limit reached; try again shortly.'
+  } else if (status >= 500) {
+    prefix += '. TinyFish is currently unavailable.'
+  }
+
+  const error = new Error(`${prefix}: ${detail}`)
+  error.statusCode = 502
+  error.upstreamStatus = status
+  error.upstreamBody = detail
+  return error
+}
+
+function makeNetworkError(error) {
+  if (error.code === 'ECONNRESET') {
+    return 'TinyFish Search reset the connection. Check the API key or try again shortly.'
+  }
+  if (error.code === 'ETIMEDOUT' || error.name === 'TimeoutError' || error.name === 'AbortError') {
+    return 'TinyFish Search timed out. Try again shortly.'
+  }
+  return 'TinyFish Search is unreachable. Check the server network connection and try again.'
+}
+
 export function createServer({
   apiKey = process.env.TINYFISH_API_KEY,
-  fetchImpl = fetch,
+  fetchImpl,
   logger = console,
 } = {}) {
   return createHttpServer(async (request, response) => {
@@ -183,48 +253,50 @@ export function createServer({
     const query = body.query.trim()
 
     try {
-      const searches = await Promise.all(searchTopics.map(async topic => {
-        const searchQuery = `${corridor} ${query} ${topic.terms}`
-        const upstreamResponse = await fetchImpl(makeSearchUrl(searchQuery, topic.domainType, topic.purpose), {
-          method: 'GET',
-          headers: { 'X-API-Key': apiKey },
-          signal: AbortSignal.timeout(20_000),
-        })
+      const searches = []
+      for (const topic of searchTopics) {
+        searches.push(await (async () => {
+          const searchQuery = `${corridor} ${query} ${topic.terms}`
+          const requestOptions = {
+            method: 'GET',
+            headers: { 'X-API-Key': apiKey },
+            signal: AbortSignal.timeout(20_000),
+          }
+          const upstreamResponse = await (fetchImpl
+            ? fetchImpl(makeSearchUrl(searchQuery, topic.domainType, topic.purpose), requestOptions)
+            : requestWithHttps(makeSearchUrl(searchQuery, topic.domainType, topic.purpose), requestOptions))
 
-        if (!upstreamResponse.ok) {
-          let upstreamBody
-          try {
-            const responseBody = await upstreamResponse.text()
-            upstreamBody = sanitizeUpstreamErrorBody(responseBody, apiKey) || '(empty response body)'
-          } catch {
-            upstreamBody = '(unable to read response body)'
+          if (!upstreamResponse.ok) {
+            let upstreamBody
+            try {
+              const responseBody = await upstreamResponse.text()
+              upstreamBody = sanitizeUpstreamErrorBody(responseBody, apiKey) || '(empty response body)'
+            } catch {
+              upstreamBody = '(unable to read response body)'
+            }
+
+            throw makeUpstreamHttpError(upstreamResponse.status, upstreamBody)
           }
 
-          const error = new Error(`TinyFish Search returned HTTP ${upstreamResponse.status}: ${upstreamBody}`)
-          error.statusCode = 502
-          error.upstreamStatus = upstreamResponse.status
-          error.upstreamBody = upstreamBody
-          throw error
-        }
+          let payload
+          try {
+            payload = await upstreamResponse.json()
+          } catch {
+            const error = new Error('TinyFish Search returned invalid JSON.')
+            error.statusCode = 502
+            throw error
+          }
 
-        let payload
-        try {
-          payload = await upstreamResponse.json()
-        } catch {
-          const error = new Error('TinyFish Search returned invalid JSON.')
-          error.statusCode = 502
-          throw error
-        }
-
-        const results = parseSearchResponse(payload, topic)
-        return {
-          category: topic.category,
-          query: typeof payload.query === 'string' ? payload.query : searchQuery,
-          total_results: typeof payload.total_results === 'number' ? payload.total_results : results.length,
-          page: typeof payload.page === 'number' ? payload.page : 0,
-          results: results.map(result => ({ ...result, category: topic.category })),
-        }
-      }))
+          const results = parseSearchResponse(payload, topic)
+          return {
+            category: topic.category,
+            query: typeof payload.query === 'string' ? payload.query : searchQuery,
+            total_results: typeof payload.total_results === 'number' ? payload.total_results : results.length,
+            page: typeof payload.page === 'number' ? payload.page : 0,
+            results: results.map(result => ({ ...result, category: topic.category })),
+          }
+        })())
+      }
 
       const uniqueResults = new Map()
       for (const search of searches) {
@@ -247,6 +319,10 @@ export function createServer({
         results: [...uniqueResults.values()].slice(0, MAX_RESULTS),
       })
     } catch (error) {
+      if (error.code || error.name === 'TimeoutError' || error.name === 'AbortError') {
+        error.statusCode = 502
+        error.message = makeNetworkError(error)
+      }
       if (error.upstreamStatus) {
         logger.error('Corridor intelligence upstream error:', {
           status: error.upstreamStatus,

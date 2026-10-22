@@ -178,3 +178,64 @@ test('logs upstream status and a truncated, redacted body and returns a useful e
   assert.ok(loggedErrors[0][1].responseBody.length <= 500)
   assert.doesNotMatch(JSON.stringify(loggedErrors), /test-key|secret-token/)
 })
+
+test('explains authentication failures without retrying them', async () => {
+  let upstreamCalls = 0
+  const baseUrl = await startServer({
+    apiKey: 'test-key',
+    fetchImpl: async () => {
+      upstreamCalls += 1
+      return Response.json({ error: { code: 'INVALID_API_KEY', message: 'Invalid or expired API key' } }, { status: 401 })
+    },
+  })
+
+  const response = await fetch(`${baseUrl}/api/corridor-intelligence`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ corridor: 'ECML', query: 'railway updates' }),
+  })
+  const body = await response.json()
+
+  assert.equal(response.status, 502)
+  assert.match(body.error, /authentication was rejected/i)
+  assert.equal(upstreamCalls, 1)
+})
+
+test('reports TinyFish rate limits clearly', async () => {
+  const baseUrl = await startServer({
+    apiKey: 'test-key',
+    fetchImpl: async () => Response.json({ error: 'Too many requests' }, { status: 429 }),
+  })
+
+  const response = await fetch(`${baseUrl}/api/corridor-intelligence`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ corridor: 'ECML', query: 'railway updates' }),
+  })
+
+  assert.equal(response.status, 502)
+  assert.match((await response.json()).error, /rate limit reached/i)
+})
+
+test('reports reset and timeout failures without exposing credentials', async () => {
+  for (const failure of [
+    Object.assign(new Error('socket reset'), { code: 'ECONNRESET' }),
+    Object.assign(new Error('request timed out'), { code: 'ETIMEDOUT' }),
+  ]) {
+    const baseUrl = await startServer({
+      apiKey: 'test-key',
+      fetchImpl: async () => { throw failure },
+    })
+
+    const response = await fetch(`${baseUrl}/api/corridor-intelligence`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ corridor: 'ECML', query: 'railway updates' }),
+    })
+    const body = await response.json()
+
+    assert.equal(response.status, 502)
+    assert.doesNotMatch(body.error, /test-key/)
+    assert.match(body.error, failure.code === 'ECONNRESET' ? /reset the connection/i : /timed out/i)
+  }
+})
