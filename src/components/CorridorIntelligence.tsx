@@ -155,6 +155,7 @@ export default function CorridorIntelligence() {
       }}
     >
       <div
+        className="corridor-intelligence-header"
         style={{
           alignItems: "center",
 
@@ -223,6 +224,7 @@ export default function CorridorIntelligence() {
       </div>
 
       <form
+        className="corridor-search-form"
         onSubmit={handleSubmit}
         style={{
           alignItems: "center",

@@ -728,9 +728,9 @@ export default function Overview() {
   const [accepted, setAccepted] = useState(false)
 
   return (
-    <div
+      <div
+        className="overview-content"
       style={{
-        padding: "28px 32px 40px",
         overflowY: "auto",
         height: "100%",
         display: "flex",
@@ -740,6 +740,7 @@ export default function Overview() {
     >
       {/* ── Page Header ── */}
       <div
+        className="overview-header"
         style={{
           display: "flex",
           alignItems: "flex-start",
@@ -756,6 +757,7 @@ export default function Overview() {
             }}
           >
             <h1
+              className="overview-title"
               style={{
                 fontFamily: "var(--font-brand)",
                 fontSize: 26,
@@ -798,6 +800,7 @@ export default function Overview() {
           </p>
         </div>
         <div
+          className="overview-header-actions"
           style={{
             display: "flex",
             alignItems: "center",
@@ -838,9 +841,9 @@ export default function Overview() {
 
       {/* ── KPI Cards ── */}
       <div
+        className="overview-kpis"
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(6, 1fr)",
           gap: 14,
         }}
       >
@@ -897,9 +900,7 @@ export default function Overview() {
       <CorridorIntelligence />
 
       {/* ── Middle Row: Network + Insights ── */}
-      <div
-        style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 16 }}
-      >
+      <div className="overview-middle">
         {/* Network Status */}
         <div
           style={{

@@ -52,6 +52,8 @@ Verify file names against the current repository before adding more files.
 
 ## Local Setup
 
+Requirements: Node.js 22.12 or newer and pnpm (Corepack is included with Node.js).
+
 ### 1. Clone the repository
 
 ```bash
@@ -77,7 +79,26 @@ Replace the placeholder with a valid key. Never commit `.env`, expose the key in
 
 ### 4. Run the application
 
-Check `package.json` for the available scripts and `server/index.mjs` for the backend startup configuration. Start the frontend and backend using the configured commands.
+Start the backend and frontend in separate terminals from the repository root:
+
+```bash
+pnpm server
+```
+
+```bash
+pnpm dev
+```
+
+The API listens on `http://127.0.0.1:3001`; Vite serves the frontend on port `8443` by default and proxies `/api` requests to the backend. Add a valid `TINYFISH_API_KEY` to `.env` before expecting external search results. Without a key, the panel displays the backend's configuration error.
+
+Run the full test suite and production build with:
+
+```bash
+pnpm test
+pnpm build
+```
+
+`pnpm test` runs both the backend's built-in Node tests and the corridor-intelligence UI tests. The overview's KPIs, network diagram, schedule, and insight cards remain demo data; corridor intelligence is the only module currently backed by the server API.
 
 ## Backend Integration Contract
 
@@ -102,15 +123,19 @@ Modules consuming this endpoint should handle loading, empty, and error states a
 
 ## Testing Checklist
 
-- [ ] Dependencies install successfully.
-- [ ] Backend starts successfully.
-- [ ] Frontend starts successfully.
+- [x] Dependencies install successfully from the lockfile.
+- [x] Backend starts successfully without an API key and returns the documented configuration error.
+- [x] Frontend starts successfully.
 - [ ] TinyFish search requests return valid results.
-- [ ] Source links work.
-- [ ] Loading, empty, and error states work.
-- [ ] Existing tests pass.
-- [ ] Production build succeeds.
-- [ ] No secrets are committed.
+- [x] Source links render correctly for returned results.
+- [x] Loading, empty, and backend-error states are covered by UI tests.
+- [x] Existing backend tests pass.
+- [x] Corridor-intelligence UI tests pass.
+- [x] Production build succeeds.
+- [x] Responsive layout checked at 390px and 1024px viewport widths.
+- [x] No local `.env` or API key is included in the change set.
+
+The live TinyFish request remains unverified until a valid `TINYFISH_API_KEY` is configured locally.
 
 ## Security
 

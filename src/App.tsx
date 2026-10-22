@@ -99,14 +99,11 @@ export default function App() {
   const [searchValue, setSearchValue] = useState("");
 
   return (
-    <div
-      style={{ display: "grid", gridTemplateColumns: "240px 1fr", gridTemplateRows: "64px 1fr", height: "100%" }}
-    >
+    <div className="app-shell">
       {/* Sidebar */}
       <aside
+        className="app-sidebar"
         style={{
-          gridColumn: "1",
-          gridRow: "1 / 3",
           backgroundColor: "#0d1829",
           display: "flex",
           flexDirection: "column",
@@ -115,6 +112,7 @@ export default function App() {
       >
         {/* Wordmark */}
         <div
+          className="app-brand"
           style={{
             height: 64,
             display: "flex",
@@ -124,7 +122,7 @@ export default function App() {
             flexShrink: 0,
           }}
         >
-          <div>
+          <div className="app-brand-copy">
             <div
               style={{
                 fontFamily: "var(--font-brand)",
@@ -160,6 +158,7 @@ export default function App() {
           {NAV_GROUPS.map((group) => (
             <div key={group.label} style={{ marginBottom: 4 }}>
               <div
+                className="app-nav-group-label"
                 style={{
                   fontFamily: "var(--font-ui)",
                   fontSize: 10,
@@ -177,6 +176,10 @@ export default function App() {
                   <button
                     key={item.id}
                     onClick={() => setActiveId(item.id)}
+                    className="app-nav-button"
+                    aria-label={item.label}
+                    aria-current={isActive ? "page" : undefined}
+                    title={item.label}
                     style={{
                       width: "100%",
                       textAlign: "left",
@@ -211,7 +214,7 @@ export default function App() {
                     }}
                   >
                     <NavIcon id={item.id} active={isActive} />
-                    {item.label}
+                    <span className="app-nav-label">{item.label}</span>
                   </button>
                 );
               })}
@@ -221,6 +224,7 @@ export default function App() {
 
         {/* System status */}
         <div
+          className="app-system-status"
           style={{
             borderTop: "1px solid rgba(255,255,255,0.08)",
             padding: "14px 20px",
@@ -241,6 +245,7 @@ export default function App() {
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span
+              className="app-system-status-label"
               style={{
                 width: 8,
                 height: 8,
@@ -251,6 +256,7 @@ export default function App() {
               }}
             />
             <span
+              className="app-system-status-label"
               style={{
                 fontFamily: "var(--font-mono)",
                 fontSize: 12,
@@ -265,9 +271,8 @@ export default function App() {
 
       {/* Top bar */}
       <header
+        className="app-topbar"
         style={{
-          gridColumn: "2",
-          gridRow: "1",
           backgroundColor: "#ffffff",
           borderBottom: "1px solid var(--color-border)",
           display: "flex",
@@ -278,7 +283,7 @@ export default function App() {
         }}
       >
         {/* Breadcrumb */}
-        <div style={{ display: "flex", alignItems: "center", gap: 6, flex: 1, minWidth: 0 }}>
+        <div className="app-breadcrumb" style={{ display: "flex", alignItems: "center", gap: 6, flex: 1, minWidth: 0 }}>
           <span
             style={{
               fontFamily: "var(--font-ui)",
@@ -304,6 +309,7 @@ export default function App() {
 
         {/* Scenario pill */}
         <div
+          className="app-scenario-pill"
           style={{
             display: "flex",
             alignItems: "center",
@@ -336,6 +342,7 @@ export default function App() {
 
         {/* Search */}
         <div
+          className="app-search"
           style={{
             position: "relative",
             flexShrink: 0,
@@ -352,6 +359,7 @@ export default function App() {
             <path d="M10.5 10.5l2.5 2.5" stroke="#a8b4c0" strokeWidth="1.4" strokeLinecap="round" />
           </svg>
           <input
+            className="app-search-input"
             type="text"
             placeholder="Search assets, faults, work orders…"
             value={searchValue}
@@ -434,6 +442,7 @@ export default function App() {
 
         {/* User profile */}
         <div
+          className="app-profile"
           style={{
             display: "flex",
             alignItems: "center",
@@ -481,7 +490,7 @@ export default function App() {
               AK
             </span>
           </div>
-          <div>
+          <div className="app-profile-copy">
             <div
               style={{
                 fontFamily: "var(--font-ui)",
@@ -505,6 +514,7 @@ export default function App() {
             </div>
           </div>
           <svg
+            className="app-profile-chevron"
             width="12"
             height="12"
             viewBox="0 0 16 16"
@@ -524,9 +534,8 @@ export default function App() {
 
       {/* Main content area */}
       <main
+        className="app-main"
         style={{
-          gridColumn: "2",
-          gridRow: "2",
           backgroundColor: "var(--color-background)",
           overflow: "hidden",
           position: "relative",
