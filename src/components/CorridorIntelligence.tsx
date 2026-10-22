@@ -3,6 +3,8 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from "react"
 interface CorridorSearchResult {
   position?: number
 
+  categories?: string[]
+
   site_name?: string
 
   title: string
@@ -408,7 +410,23 @@ export default function CorridorIntelligence() {
               }}
             >
               {result.title}
-            </div>
+            </div>            
+          {result.categories &&
+            result.categories.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-2">
+                {result.categories.map((category) => (
+                  <span
+                    key={category}
+                    className="px-2 py-1 rounded text-[10px]
+                              bg-blue-50 text-blue-700
+                              border border-blue-200"
+                  >
+                    {category}
+                  </span>
+                ))}
+              </div>
+            )}
+            
             {result.snippet && (
               <p
                 style={{
